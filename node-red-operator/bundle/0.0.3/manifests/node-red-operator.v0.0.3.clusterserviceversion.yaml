@@ -297,21 +297,6 @@ spec:
   description: |
     Node-RED is a flow-based programming tool, originally developed by IBM's Emerging Technology Services team and now a part of the JS Foundation.
 
-         **How to get the Application Images from registry?**
-    -----
-    - First Login to redhat catalogue webpage using your credentials.
-    - Search for the Operator.
-    - Click on the Operator.
-    - There is a description that redirects you (upon clicking) to page that explains how to create service accounts.
-    - Create a Service Account. Refer page : <https://access.redhat.com/terms-based-registry/#/accounts>
-    - Once a service account is created , you can click on it and then navigate to tab Openshift Secret to get the yaml file for your ImagePullSecret.
-    - Download the Secret. Create the secret using command
-    ```sh
-        kubectl create -f <secretfile.yml> --namespace=NAMESPACEHERE
-    ```
-    - Use the name of the created secret in the CR file.
-    - For all the application images we would need the secret name to be passed in the CR Spec.
-
     ----------
 
     **Node-RED CR Spec Details**
