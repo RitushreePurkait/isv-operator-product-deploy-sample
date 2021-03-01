@@ -14,6 +14,9 @@ rules:
       - pods
       - pods/exec
       - pods/log
+      - configmaps
+      - endpoints
+      - persistentvolumeclaims
     verbs:
       - create
       - delete
@@ -89,3 +92,11 @@ rules:
       - update
       - watch
 # +kubebuilder:scaffold:rules
+  - apiGroups:
+      - security.openshift.io
+    resources:
+      - securitycontextconstraints
+    resourceNames:
+      - anyuid
+    verbs:
+      - use

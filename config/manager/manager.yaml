@@ -1,25 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: node-red-ansible-operator
+  name: system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: node-red-operator
   labels:
-    name: node-red-ansible-operator
+    control-plane: node-red-ansible-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: node-red-ansible-operator
+      control-plane: node-red-ansible-operator
   template:
     metadata:
       labels:
-        name: node-red-ansible-operator
+        control-plane: node-red-ansible-operator
     spec:
       serviceAccountName: node-red-operator
       containers:
-        - name: node-red-operator
+        - name: manager
           # Replace this with the built image name
-          image: "registry.connect.redhat.com/ibm-edge/node-red-operator:0.0.2"
+          image: "registry.connect.redhat.com/ibm-edge/node-red-operator:v-0.0.3"
           imagePullPolicy: "Always"
           volumeMounts:
           - mountPath: /tmp/ansible-operator/runner
@@ -38,7 +44,7 @@ spec:
             - name: ANSIBLE_GATHERING
               value: explicit
             - name: RELATED_IMAGE_NODERED
-              value: registry.connect.redhat.com/ibm-edge/node-red:0.0.2
+              value: registry.connect.redhat.com/ibm-edge/node-red:v0.0.3
             - name: RELATED_IMAGE_NODERED_BACKUP
               value: registry.connect.redhat.com/ibm-edge/node-red-backup-restore:v0.0.1
             - name: RELATED_IMAGE_NODERED_RESTORE
