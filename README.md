@@ -1,4 +1,4 @@
-## Index
+## Table of Contents:
 
 We will be covering the below topics in this guide.
 
