@@ -1,0 +1,251 @@
+---
+# tasks file for noderedhelmansible
+- name: set default volumes
+  set_fact:
+    volumeMounts:
+      - mountPath: /data/usr/conf
+        name: config-volume
+    volumeNames:
+      - configMap:
+          name: settings-configmap
+        name: config-volume
+
+- block:
+    - name: set volume
+      set_fact:
+        volumeMounts:
+          - mountPath: /data/usr/conf
+            name: config-volume
+          - mountPath: /data
+            name: data
+        volumeNames:
+          - configMap:
+              name: settings-configmap
+            name: config-volume
+          - name: data
+            persistentVolumeClaim:
+              claimName:  node-red-pvc
+  when: persistentvolume.enabled is defined and persistentvolume.enabled|bool == true
+
+- name: upgrade
+  include_tasks: upgrade.yaml
+
+
+#- name: Debug
+#  debug:
+#    msg:
+#      - '{{ pv_accessmode }}'
+#      - " Storage Class: '{{ persistentvolume.storageclass }}'"
+#      - " Access Mode: '{{ persistentvolume.accessmode }}'"
+#      - " Size: '{{ persistentvolume.size }}'"
+
+#Validate if the variables in the CR
+- name: Fail if Admin Password  is empty
+  fail:
+    msg: "AdminPassword is empty.Please provide an admin password***********"
+  when: adminpassword | default('', true) | trim == ''
+
+- name : Fail if Storage Class is empty
+  fail:
+    msg: "Please provide a storage class for PV creation********************"
+  when: persistentvolume.enabled is defined and persistentvolume.enabled|bool == true and (persistentvolume.storageclass | default('', true) | trim == '')
+
+- name: Fail if AccessMode is empty
+  fail:
+    msg: "Please provide an AccessMode for PV creation******************"
+  when: persistentvolume.enabled is defined and persistentvolume.enabled|bool == true and (persistentvolume.accessmode | default('', true) | trim == '')
+
+- name: Fail is PV size is empty
+  fail:
+    msg: "Please provide the PV size. ***************"
+  when: 
+    - persistentvolume.enabled is defined and persistentvolume.enabled|bool == true and (persistentvolume.size | default('', true) | trim == '')
+
+- name: Get Dashboard CR Details
+  k8s_info:
+    api_version: nodered.com/v1alpha1
+    kind: NodeRed
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+  register: custom_resource_start
+
+- name: Set CR Status to Installing
+  k8s_status:
+    api_version: nodered.com/v1alpha1
+    kind: NodeRed
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      phase: "{{ pending }}"
+      url: "Installation In Progress ..."
+  when: (custom_resource_start | json_query('resources[].status.phase') == [])
+
+- name: create pvc
+  when: persistentvolume.enabled is defined and persistentvolume.enabled|bool == true
+  k8s:
+     definition:
+       apiVersion: v1
+       kind: PersistentVolumeClaim
+       metadata:
+         name: node-red-pvc
+         namespace: "{{ ansible_operator_meta.namespace }}"
+         labels:
+           app: node-red-app
+       spec:
+         storageClassName: "{{ persistentvolume.storageclass }}"
+         accessModes: 
+           - "{{ persistentvolume.accessmode }}"
+         resources:
+           requests:
+             storage: "{{ persistentvolume.size | quote }}"
+
+
+- name: create config-map
+  include_tasks: configmap.yaml
+
+- name: deploy node-red
+  vars:
+    newimage:  "{{ lookup('env','RELATED_IMAGE_NODERED') }}"
+  k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: node-red
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        selector:
+          matchLabels:
+            app: node-red-app
+        replicas: "{{ size }}"
+        strategy:
+          type: Recreate
+          rollingUpdate: null
+        template:
+          metadata:
+            labels:
+              app: node-red-app
+          spec:
+#            imagePullSecrets:
+#              - name: secured-operator-check
+            serviceAccountName: node-red-operator
+            securityContext:
+              fsGroup: 1000
+            containers:
+            - name: node-red
+              image: "{{ newimage }}"
+              imagePullPolicy: Always
+              ports:
+               - containerPort: 1880
+              livenessProbe:
+                httpGet:
+                  scheme: HTTP
+                  path: /
+                  port: 1880
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 5
+              readinessProbe:
+                httpGet:
+                  scheme: HTTP
+                  path: /
+                  port: 1880
+                initialDelaySeconds: 30
+                failureThreshold: 5
+                periodSeconds: 30
+                timeoutSeconds: 5
+              volumeMounts: "{{ volumeMounts }}"
+              command:
+                - /bin/sh
+                - -c
+                - | 
+                  
+                  if [ -f "/data/package.json" ]; then echo "Installing Packages....." && cd /data/  && npm install && echo "Installed...."; fi
+                  
+                  cd /usr/src/node-red/ && npm start -- --settings /data/usr/conf/settings.js 
+
+            volumes: "{{ volumeNames }}"
+
+- name: create service
+  k8s:
+    definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: node-red-svc
+          namespace: "{{ ansible_operator_meta.namespace }}"
+          labels:
+            app: node-red-app
+        spec:
+          selector:
+              app: node-red-app
+          ports:
+            - name: 1880-tcp
+              protocol: TCP
+              port: 1880
+              targetPort: 1880
+
+- name: create route
+  k8s:
+    definition:
+        apiVersion: route.openshift.io/v1
+        kind: Route
+        metadata:
+          name: node-red
+          namespace: "{{ ansible_operator_meta.namespace }}"
+          labels:
+            app: node-red-app
+        spec:
+          to:
+            kind: Service
+            name: node-red-svc
+          port:
+            targetPort: 1880-tcp
+          tls:
+            termination: edge
+            insecureEdgeTerminationPolicy: Allow
+          wildcardPolicy: None
+  register: dashboard_route
+- name: Get pod ++++++++++++++++++++++++++
+  k8s_info:
+    kind: Pod
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    label_selectors:
+      - app = node-red-app
+  register: podlist
+  until:
+  - "{{ podlist.resources|length > 0 }}"
+  - "{{ podlist.resources[0].status.phase == \"Running\" }}"
+  - "{{ podlist.resources[0].status.conditions[1].status == \"True\" }}"
+  retries: 20
+  delay: 15
+
+- name: Debug
+  debug:
+    msg:
+      - "Pod list: {{ podlist }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "Pod status: {{ item.status.phase }}"
+  loop: "{{ podlist.resources }}"
+
+- name: Get Dashboard CR Details
+  k8s_info:
+    api_version: nodered.com/v1alpha1
+    kind: NodeRed
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+  register: custom_resource_start
+
+- name: Set CR Status to Installing
+  k8s_status:
+    api_version: nodered.com/v1alpha1
+    kind: NodeRed
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      phase: "{{ completed }}"
+      url: "https://{{ dashboard_route.result.spec.host }}"
+  when: (custom_resource_start | json_query('resources[].status.phase') == ['{{ pending }}'])

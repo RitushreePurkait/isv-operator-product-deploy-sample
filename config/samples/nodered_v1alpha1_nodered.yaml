@@ -1,0 +1,13 @@
+apiVersion: nodered.com/v1alpha1
+kind: NodeRed
+metadata:
+  name: nodered
+spec:
+  size: 1
+  persistentvolume:
+    enabled: false
+    storageclass: ibmc-file-silver-gid
+    accessmode: ReadWriteMany
+    size: 100Mi
+  adminpassword: $2a$08$V4gPANVy34NKRbnUbMv85OKTEvRmlMTdu6Qmcb2Az5LfOMT5aPA9G
+  secretkey: c2VjcmV0
