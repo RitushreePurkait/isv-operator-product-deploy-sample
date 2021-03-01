@@ -2,11 +2,11 @@
 
 We will be covering the below topics in this guide.
 
-1. [Create an IBM image registry and namespace.](Link to #1)
-2. [Update the operator and bundle artifacts as per best practices guidelines.](link to #2)
-3. [Validate operator bundle.](link to #3)
-4. [Push the images to IBM cloud registry.](link to #4)
-5. [Upgrade to new operator version.](link to #5)
+1. [Create an IBM image registry and namespace.](https://github.com/IBM-Cloud/isv-operator-product-deploy-sample/blob/main/README.md#1-create-an-ibm-image-registry-and-namespace)
+2. [Update the operator and bundle artifacts as per best practices guidelines.](https://github.com/IBM-Cloud/isv-operator-product-deploy-sample/blob/main/README.md#2-update-the-operator-and-bundle-artifacts-as-per-best-practices-guidelines)
+3. [Validate operator bundle.](https://github.com/IBM-Cloud/isv-operator-product-deploy-sample/blob/main/README.md#3validate-operator-bundle)
+4. [Push the images to IBM cloud registry.](https://github.com/IBM-Cloud/isv-operator-product-deploy-sample/blob/main/README.md#4-push-images-to-ibm-cloud-registry)
+5. [Upgrade to new operator version.](https://github.com/IBM-Cloud/isv-operator-product-deploy-sample/blob/main/README.md#5-upgrade-to-a-new-version)
 
 ## Getting Started
 
